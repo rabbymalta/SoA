@@ -1,0 +1,124 @@
+{
+  "Comment": "MaltaShop place-order saga. The workflow is a declaration, not code: it is deployed to AWS Step Functions unchanged, and the prototype's engine interprets this same file.",
+  "StartAt": "ReserveStock",
+  "TimeoutSeconds": 120,
+  "States": {
+    "ReserveStock": {
+      "Type": "Task",
+      "Resource": "arn:aws:states:::sqs:sendMessage.waitForTaskToken",
+      "Parameters": {
+        "QueueName": "maltashop-inventory-tasks",
+        "MessageBody": {
+          "command": "ReserveStock",
+          "order_id.$": "$.order_id",
+          "lines.$": "$.lines",
+          "taskToken.$": "$$.Task.Token"
+        }
+      },
+      "TimeoutSeconds": 30,
+      "ResultPath": "$.stock",
+      "Next": "StockOutcome",
+      "Catch": [
+        { "ErrorEquals": ["States.Timeout"], "Next": "RejectOrder" }
+      ]
+    },
+
+    "StockOutcome": {
+      "Type": "Choice",
+      "Choices": [
+        { "Variable": "$.stock.status", "StringEquals": "RESERVED", "Next": "AuthorisePayment" }
+      ],
+      "Default": "RejectOrder"
+    },
+
+    "AuthorisePayment": {
+      "Type": "Task",
+      "Resource": "arn:aws:states:::sqs:sendMessage.waitForTaskToken",
+      "Parameters": {
+        "QueueName": "maltashop-payment-tasks",
+        "MessageBody": {
+          "command": "AuthorisePayment",
+          "order_id.$": "$.order_id",
+          "customer_id.$": "$.customer_id",
+          "amount_cents.$": "$.total_cents",
+          "taskToken.$": "$$.Task.Token"
+        }
+      },
+      "TimeoutSeconds": 30,
+      "ResultPath": "$.payment",
+      "Next": "PaymentOutcome",
+      "Catch": [
+        { "ErrorEquals": ["States.Timeout"], "Next": "ReleaseStock" }
+      ]
+    },
+
+    "PaymentOutcome": {
+      "Type": "Choice",
+      "Choices": [
+        { "Variable": "$.payment.status", "StringEquals": "AUTHORISED", "Next": "ConfirmOrder" }
+      ],
+      "Default": "ReleaseStock"
+    },
+
+    "ReleaseStock": {
+      "Type": "Task",
+      "Comment": "The compensating action for ReserveStock.",
+      "Resource": "arn:aws:states:::sqs:sendMessage.waitForTaskToken",
+      "Parameters": {
+        "QueueName": "maltashop-inventory-tasks",
+        "MessageBody": {
+          "command": "ReleaseStock",
+          "order_id.$": "$.order_id",
+          "taskToken.$": "$$.Task.Token"
+        }
+      },
+      "TimeoutSeconds": 30,
+      "ResultPath": "$.release",
+      "Next": "CancelOrder"
+    },
+
+    "ConfirmOrder": {
+      "Type": "Task",
+      "Resource": "arn:aws:states:::events:putEvents",
+      "Parameters": {
+        "DetailType": "OrderConfirmed",
+        "Detail": {
+          "order_id.$": "$.order_id",
+          "customer_id.$": "$.customer_id",
+          "total_cents.$": "$.total_cents",
+          "lines.$": "$.lines",
+          "psp_reference.$": "$.payment.psp_reference"
+        }
+      },
+      "End": true
+    },
+
+    "RejectOrder": {
+      "Type": "Task",
+      "Resource": "arn:aws:states:::events:putEvents",
+      "Parameters": {
+        "DetailType": "OrderCancelled",
+        "Detail": {
+          "order_id.$": "$.order_id",
+          "customer_id.$": "$.customer_id",
+          "reason.$": "$.stock.reason"
+        }
+      },
+      "End": true
+    },
+
+    "CancelOrder": {
+      "Type": "Task",
+      "Resource": "arn:aws:states:::events:putEvents",
+      "Parameters": {
+        "DetailType": "OrderCancelled",
+        "Detail": {
+          "order_id.$": "$.order_id",
+          "customer_id.$": "$.customer_id",
+          "reason.$": "$.payment.reason"
+        }
+      },
+      "End": true
+    }
+  }
+}
