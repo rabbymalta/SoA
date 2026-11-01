@@ -1,0 +1,118 @@
+# MaltaShop event-core prototype.
+#
+# Every AWS service the design depends on - DynamoDB, EventBridge, SQS and IAM -
+# runs inside one LocalStack container, so the whole platform starts from a single
+# `docker compose up`. The five application containers hold handler code that is
+# deployed unchanged as Lambda functions in AWS.
+name: maltashop-eventcore
+
+x-aws-env: &aws-env
+  AWS_ENDPOINT_URL: http://localstack:4566
+  AWS_REGION: eu-south-1          # Milan: the closest region to Malta
+  AWS_DEFAULT_REGION: eu-south-1
+  AWS_ACCESS_KEY_ID: test
+  AWS_SECRET_ACCESS_KEY: test
+  EVENT_BUS: maltashop-bus
+  LOG_LEVEL: ${LOG_LEVEL:-info}
+  ENVIRONMENT: ${ENVIRONMENT:-local}
+  SERVICE_VERSION: ${SERVICE_VERSION:-1.2.0}
+
+x-python-service: &python-service
+  build:
+    context: .
+    dockerfile: Dockerfile
+  restart: unless-stopped
+  depends_on:
+    bootstrap: {condition: service_completed_successfully}
+
+services:
+  # ------------------------------------------------------------ the cloud, locally
+  localstack:
+    image: localstack/localstack:3.8
+    environment:
+      SERVICES: dynamodb,events,sqs,iam,sts
+      DEBUG: "0"
+      PERSISTENCE: "0"
+      AWS_DEFAULT_REGION: eu-south-1
+    ports:
+      - "4666:4566"
+    healthcheck:
+      test: ["CMD-SHELL", "curl -sf http://localhost:4566/_localstack/health | grep -q '\"dynamodb\": \"available\"'"]
+      interval: 5s
+      timeout: 5s
+      retries: 30
+
+  # Creates the tables, the event bus, the rules and the queues, then exits.
+  # In AWS this is the CDK stack; here it is one idempotent script.
+  bootstrap:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    environment: *aws-env
+    depends_on:
+      localstack: {condition: service_healthy}
+    command: ["python", "-m", "scripts.bootstrap"]
+    restart: "no"
+
+  # ------------------------------------------------------------------- services
+  order-service:
+    <<: *python-service
+    environment:
+      <<: *aws-env
+      SERVICE_NAME: order-service
+      PORT: "8080"
+      WORKFLOW_URL: http://workflow-service:8084
+    command: ["uvicorn", "order_service.main:app", "--host", "0.0.0.0", "--port", "8080"]
+    ports: ["9280:8080"]
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request,sys; sys.exit(0 if urllib.request.urlopen('http://127.0.0.1:8080/health/ready', timeout=3).status==200 else 1)"]
+      interval: 10s
+      timeout: 5s
+      retries: 6
+      start_period: 15s
+
+  workflow-service:
+    <<: *python-service
+    environment:
+      <<: *aws-env
+      SERVICE_NAME: workflow-service
+      PORT: "8084"
+      STATE_MACHINE: /app/contracts/place-order.asl.json
+    command: ["uvicorn", "workflow_service.main:app", "--host", "0.0.0.0", "--port", "8084"]
+    ports: ["9284:8084"]
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request,sys; sys.exit(0 if urllib.request.urlopen('http://127.0.0.1:8084/health/ready', timeout=3).status==200 else 1)"]
+      interval: 10s
+      timeout: 5s
+      retries: 6
+      start_period: 15s
+
+  inventory-service:
+    <<: *python-service
+    environment:
+      <<: *aws-env
+      SERVICE_NAME: inventory-service
+      PORT: "8081"
+      WORKFLOW_URL: http://workflow-service:8084
+    command: ["uvicorn", "inventory_service.main:app", "--host", "0.0.0.0", "--port", "8081"]
+    ports: ["9281:8081"]
+
+  payment-service:
+    <<: *python-service
+    environment:
+      <<: *aws-env
+      SERVICE_NAME: payment-service
+      PORT: "8082"
+      WORKFLOW_URL: http://workflow-service:8084
+      CARD_CEILING_EUR: ${CARD_CEILING_EUR:-600}
+    command: ["uvicorn", "payment_service.main:app", "--host", "0.0.0.0", "--port", "8082"]
+    ports: ["9282:8082"]
+
+  notification-service:
+    <<: *python-service
+    environment:
+      <<: *aws-env
+      SERVICE_NAME: notification-service
+      PORT: "8083"
+    command: ["uvicorn", "notification_service.main:app", "--host", "0.0.0.0", "--port", "8083"]
+    ports: ["9283:8083"]
