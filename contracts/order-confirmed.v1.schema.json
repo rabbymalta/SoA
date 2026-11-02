@@ -1,0 +1,28 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://contracts.maltashop.mt/eventbridge/order-confirmed.v1.schema.json",
+  "title": "OrderConfirmed v1 (EventBridge detail)",
+  "description": "Published on the maltashop-bus with detail-type OrderConfirmed. notification-service is the consumer and owns this schema; the producer's pipeline must keep it green. In AWS it is registered in the EventBridge schema registry and the same file is the source of truth.",
+  "type": "object",
+  "required": ["order_id", "customer_id", "total_cents", "lines", "event_id", "correlation_id"],
+  "properties": {
+    "order_id":       { "type": "string", "minLength": 36 },
+    "customer_id":    { "type": "string", "minLength": 1 },
+    "total_cents":    { "type": "integer", "minimum": 0 },
+    "psp_reference":  { "type": "string" },
+    "event_id":       { "type": "string", "minLength": 36 },
+    "correlation_id": { "type": "string", "minLength": 1 },
+    "lines": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "type": "object",
+        "required": ["sku", "quantity"],
+        "properties": {
+          "sku":      { "type": "string", "minLength": 1 },
+          "quantity": { "type": "integer", "minimum": 1 }
+        }
+      }
+    }
+  }
+}
