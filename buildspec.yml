@@ -1,0 +1,54 @@
+# AWS CodeBuild specification, used by the CodePipeline in infra/pipeline.ts.
+#
+# One commit produces one bundle. Its SHA-256 digest is written to the artefact
+# and every later stage deploys that exact object from S3, so nothing is ever
+# rebuilt on the way to production.
+version: 0.2
+
+env:
+  variables:
+    PYTHON_VERSION: "3.12"
+  exported-variables: [BUNDLE_DIGEST, COMMIT_SHA]
+
+phases:
+  install:
+    runtime-versions:
+      python: 3.12
+    commands:
+      - pip install --quiet -r requirements-dev.txt
+      - pip install --quiet ruff==0.7.2 bandit==1.7.10 cfn-lint==1.18.1
+
+  pre_build:
+    commands:
+      - echo "--- verify ---"
+      - ruff check .                                   # style and obvious defects
+      - python -m pytest tests -q                      # unit and contract tests
+      - bandit -q -r maltashop order-service workflow-service inventory-service payment-service notification-service
+      - python -c "import json,sys; json.load(open('contracts/place-order.asl.json'))"
+
+  build:
+    commands:
+      - echo "--- build once ---"
+      - COMMIT_SHA=${CODEBUILD_RESOLVED_SOURCE_VERSION}
+      - sam build --use-container
+      - sam package --s3-bucket "$ARTIFACT_BUCKET" --output-template-file packaged.yaml
+      - BUNDLE_DIGEST=$(sha256sum packaged.yaml | cut -d' ' -f1)
+      - echo "bundle $BUNDLE_DIGEST from commit $COMMIT_SHA"
+
+  post_build:
+    commands:
+      - echo "--- integration ---"
+      # The whole platform, including LocalStack, started exactly as a developer
+      # starts it, then driven through both failure paths.
+      - docker compose up --build -d --wait
+      - ./scripts/smoke_test.sh
+      - docker compose down -v
+
+artifacts:
+  files: [packaged.yaml, appspec.yaml, scripts/**/*]
+  discard-paths: no
+
+reports:
+  unit:
+    files: [junit.xml]
+    file-format: JUNITXML

@@ -1,0 +1,26 @@
+# CodeDeploy specification for the checkout functions.
+#
+# Every Lambda alias is shifted gradually: ten per cent of invocations go to the
+# new version for five minutes, the alarms below watch that slice, and CodeDeploy
+# reverses the alias automatically if either one fires. No traffic manager, no
+# second environment, and a roll-back that takes seconds.
+version: 0.0
+Resources:
+  - PlaceOrderFunction:
+      Type: AWS::Lambda::Function
+      Properties:
+        Name: maltashop-place-order
+        Alias: live
+        CurrentVersion: <CURRENT_VERSION>
+        TargetVersion: <TARGET_VERSION>
+
+Hooks:
+  - BeforeAllowTraffic: maltashop-pre-traffic-check      # synthetic order against the new version
+  - AfterAllowTraffic: maltashop-post-traffic-check      # confirms the saga completed end to end
+
+DeploymentPreference:
+  Type: Canary10Percent5Minutes
+  Alarms:
+    - maltashop-checkout-5xx-rate
+    - maltashop-checkout-p99-latency
+    - maltashop-saga-failed-executions
