@@ -1,0 +1,11 @@
+# syntax=docker/dockerfile:1.7
+# The image the pipeline's verify phase runs in. Building it once keeps every
+# later step fast, and pins the test and lint tooling with the same discipline
+# as the runtime dependencies.
+FROM python:3.12.7-slim-bookworm
+WORKDIR /w
+RUN apt-get update && apt-get install -y --no-install-recommends gcc \
+ && rm -rf /var/lib/apt/lists/*
+COPY requirements.txt requirements-dev.txt ./
+RUN pip install --no-cache-dir -r requirements-dev.txt \
+ && pip install --no-cache-dir ruff==0.7.2 bandit==1.7.10
