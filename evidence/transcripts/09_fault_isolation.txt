@@ -1,0 +1,13 @@
+$ docker compose stop notification-service 2>&1 | tail -1
+ Container maltashop-eventcore-notification-service-1 Stopped 
+
+$ curl -sS -o /dev/null -w 'checkout answered HTTP %{http_code} in %{time_total}s\n' -X POST http://localhost:9280/orders -H 'content-type: application/json' -H 'x-correlation-id: 4cc6efdc-e00f-4709-997d-dacf2f3cbac9' -H 'idempotency-key: out-4cc6efdc' -d '{"customer_id":"MT-C-7741","items":[{"sku":"COFFEE-DLX","quantity":1},{"sku":"KETTLE-TMP","quantity":2}]}'
+checkout answered HTTP 201 in 0.130131s
+
+$ sleep 6; docker compose exec -T order-service python -m scripts.describe_platform queues 2>/dev/null | tail -6
+SQS queues and their depth:
+  maltashop-inventory-tasks        waiting=  0  in-flight=  0  retained=  0
+  maltashop-payment-tasks          waiting=  0  in-flight=  0  retained=  0
+  maltashop-notification-events    waiting=  0  in-flight=  1  retained=  1
+  maltashop-order-events-queue     waiting=  0  in-flight=  0  retained=  0
+  maltashop-dlq                    waiting=  0  in-flight=  0  retained=  0

@@ -1,0 +1,19 @@
+$ curl -sS http://localhost:9280/orders/99deb7a9-1f8d-40d9-9f6f-3a08733c301b/events | jq -c '.[]'
+{"seq":1,"event_type":"OrderPlaced","occurred_at":"2026-11-10T12:11:28Z"}
+{"seq":2,"event_type":"StockReserved","occurred_at":"2026-11-10T12:11:29Z"}
+{"seq":3,"event_type":"PaymentAuthorised","occurred_at":"2026-11-10T12:11:29Z"}
+{"seq":4,"event_type":"OrderConfirmed","occurred_at":"2026-11-10T12:11:29Z"}
+
+$ curl -sS 'http://localhost:9280/orders/99deb7a9-1f8d-40d9-9f6f-3a08733c301b' | jq '{state, version, source}'
+{
+  "state": "CONFIRMED",
+  "version": 4,
+  "source": "read model (projection)"
+}
+
+$ curl -sS 'http://localhost:9280/orders/99deb7a9-1f8d-40d9-9f6f-3a08733c301b?consistent=true' | jq '{state, version, source}'
+{
+  "state": "CONFIRMED",
+  "version": 4,
+  "source": "event-store (folded on read)"
+}

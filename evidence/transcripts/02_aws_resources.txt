@@ -1,0 +1,22 @@
+$ docker compose exec -T order-service python -m scripts.describe_platform 2>/dev/null | head -30
+DynamoDB tables (8), one per service:
+  maltashop-executions             items=1
+  maltashop-inventory              items=7
+  maltashop-notifications          items=1
+  maltashop-order-events           items=4
+  maltashop-order-view             items=2
+  maltashop-payments               items=1
+  maltashop-processed              items=4
+  maltashop-tasks                  items=2
+
+EventBridge rules on maltashop-bus (3), one per consumer:
+  maltashop-order-projection       StockReserved,StockRejected,PaymentAuthorised,PaymentDecli
+  maltashop-notification-fanout    OrderConfirmed,OrderCancelled
+  maltashop-inventory-commit       OrderConfirmed
+
+SQS queues and their depth:
+  maltashop-inventory-tasks        waiting=  0  in-flight=  0  retained=  0
+  maltashop-payment-tasks          waiting=  0  in-flight=  0  retained=  0
+  maltashop-notification-events    waiting=  0  in-flight=  0  retained=  0
+  maltashop-order-events-queue     waiting=  0  in-flight=  0  retained=  0
+  maltashop-dlq                    waiting=  0  in-flight=  0  retained=  0

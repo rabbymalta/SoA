@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Small SVG toolkit shared by this submission's figures.
+"""Small SVG toolkit for this submission's figures: hairline rules, one accent.
 
 Everything is drawn at a design width of 880 units, which the report scales to
 the full text width, so a font size of 14 here prints at roughly 7.5 pt.
@@ -9,17 +9,17 @@ from pathlib import Path
 OUT = Path(__file__).parent / "src"
 
 FONT = "Helvetica, Arial, sans-serif"
-INK = "#16202a"
-GREY = "#667085"
-LIGHT = "#eef2f6"
+INK = "#1c1b1f"
+GREY = "#6b6a70"
+LIGHT = "#f5f4f2"
 WHITE = "#ffffff"
-ACCENT = "#b3261e"       # checkout-critical, gates, compensation
-AMBER = "#8a5a00"        # message broker and events
-AMBER_FILL = "#fdf4e3"
-BLUE = "#15497a"         # observability and prototype marks
-BLUE_FILL = "#e6eff8"
-GREEN = "#0e6245"
-GREEN_FILL = "#e6f4ee"
+ACCENT = "#b45309"       # checkout-critical, gates, compensation
+AMBER = "#8a6d1f"        # message broker and events
+AMBER_FILL = "#fbf4e6"
+BLUE = "#4338ca"         # observability and prototype marks
+BLUE_FILL = "#eeedfb"
+GREEN = "#15635a"
+GREEN_FILL = "#e7f2f0"
 COLOURS = {"ink": INK, "grey": GREY, "accent": ACCENT, "amber": AMBER, "blue": BLUE, "green": GREEN}
 
 
@@ -49,7 +49,7 @@ def text_lines(x, y, rows, size=13.5, gap=17, **kw):
     return "\n".join(text(x, y + i * gap, row, size=size, **kw) for i, row in enumerate(rows))
 
 
-def rect(x, y, w, h, fill=LIGHT, stroke=INK, width=1.4, rx=7, dashed=False):
+def rect(x, y, w, h, fill=LIGHT, stroke=INK, width=1.0, rx=3, dashed=False):
     dash = ' stroke-dasharray="6 4"' if dashed else ""
     return (f'<rect x="{x}" y="{y}" width="{w}" height="{h}" rx="{rx}" fill="{fill}" stroke="{stroke}" '
             f'stroke-width="{width}"{dash}/>')

@@ -1,0 +1,21 @@
+$ echo 'available before the order: 12'
+available before the order: 12
+
+$ curl -sS http://localhost:9284/executions/457fffe4-5643-4cfd-ad5e-4ea654ed04d9 | jq '{status, path}'
+{
+  "status": "SUCCEEDED",
+  "path": [
+    "ReserveStock",
+    "StockOutcome",
+    "AuthorisePayment",
+    "PaymentOutcome",
+    "ReleaseStock",
+    "CancelOrder"
+  ]
+}
+
+$ curl -sS http://localhost:9280/orders/61c212e7-121c-4fc6-bbf4-68bd25259756/events | jq -r '[.[].event_type] | join(" -> ")'
+OrderPlaced -> StockReserved -> PaymentDeclined -> StockReleased -> OrderCancelled
+
+$ curl -sS http://localhost:9281/stock | jq -r '.[]|select(.sku=="MONITOR-27U")|"available after compensation: \(.available)"'
+available after compensation: 12

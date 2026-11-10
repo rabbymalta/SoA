@@ -1,0 +1,8 @@
+$ docker compose ps --format 'table {{.Service}}\t{{.Status}}\t{{.Ports}}' | cut -c1-118
+SERVICE                STATUS                    PORTS
+inventory-service      Up 10 seconds (healthy)   0.0.0.0:9281->8081/tcp, [::]:9281->8081/tcp
+localstack             Up 20 seconds (healthy)   0.0.0.0:4666->4566/tcp, [::]:4666->4566/tcp
+notification-service   Up 10 seconds (healthy)   0.0.0.0:9283->8083/tcp, [::]:9283->8083/tcp
+order-service          Up 10 seconds (healthy)   0.0.0.0:9280->8080/tcp, [::]:9280->8080/tcp
+payment-service        Up 10 seconds (healthy)   0.0.0.0:9282->8082/tcp, [::]:9282->8082/tcp
+workflow-service       Up 10 seconds (healthy)   0.0.0.0:9284->8084/tcp, [::]:9284->8084/tcp

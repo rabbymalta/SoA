@@ -1,0 +1,15 @@
+$ docker compose start notification-service 2>&1 | tail -1
+ Container maltashop-eventcore-notification-service-1 Started 
+
+$ until curl -fsS http://localhost:9283/health/ready >/dev/null 2>&1; do sleep 1; done; for _ in $(seq 1 60); do   n=$(curl -sS http://localhost:9283/notifications | jq length);   [ "$n" -ge 3 ] && break; sleep 2; done; docker compose exec -T order-service python -m scripts.describe_platform queues 2>/dev/null | tail -6
+SQS queues and their depth:
+  maltashop-inventory-tasks        waiting=  0  in-flight=  0  retained=  0
+  maltashop-payment-tasks          waiting=  0  in-flight=  0  retained=  0
+  maltashop-notification-events    waiting=  0  in-flight=  0  retained=  0
+  maltashop-order-events-queue     waiting=  0  in-flight=  0  retained=  0
+  maltashop-dlq                    waiting=  0  in-flight=  0  retained=  0
+
+$ curl -sS http://localhost:9283/notifications | jq -r '.[] | [.template, .subject] | @tsv' | head -4 | column -t -s $'\t'
+order-confirmed  MaltaShop order 4f147260 confirmed
+order-confirmed  MaltaShop order 99deb7a9 confirmed
+order-cancelled  MaltaShop order 61c212e7 could not be completed

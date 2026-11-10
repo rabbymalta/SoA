@@ -1,0 +1,19 @@
+$ curl -sS http://localhost:9284/executions/447a0c86-9b0f-48fa-bb1b-c2cb9e5a6cdf | jq '{status, state, path, stock: .data.stock, payment: .data.payment}'
+{
+  "status": "SUCCEEDED",
+  "state": "ConfirmOrder",
+  "path": [
+    "ReserveStock",
+    "StockOutcome",
+    "AuthorisePayment",
+    "PaymentOutcome",
+    "ConfirmOrder"
+  ],
+  "stock": {
+    "status": "RESERVED"
+  },
+  "payment": {
+    "status": "AUTHORISED",
+    "psp_reference": "psp_2e26ce4fb694"
+  }
+}

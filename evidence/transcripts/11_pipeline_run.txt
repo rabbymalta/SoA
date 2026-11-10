@@ -1,0 +1,18 @@
+$ ./scripts/run_pipeline.sh
+
+[1m== phase 1  verify ==[0m
+  PASS  test image builds with pinned tooling               3s
+  PASS  ruff: style and obvious defects                     1s
+  PASS  bandit: insecure patterns in handler code           1s
+  PASS  unit tests: the fold and the engine                 1s
+  PASS  contract test: OrderConfirmed v1                    1s
+  PASS  the state machine is valid JSON                     1s
+
+[1m== phase 2  build once ==[0m
+  PASS  handler bundle image                                1s
+
+[1m== phase 3  integration ==[0m
+  PASS  platform healthy (LocalStack + 5 handlers)          1s
+  PASS  place-order workflow, both failure paths            2s
+
+[32mpipeline passed: 9 checks, 0 failures[0m
