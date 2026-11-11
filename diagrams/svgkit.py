@@ -1,112 +1,141 @@
 #!/usr/bin/env python3
-"""Small SVG toolkit for this submission's figures: hairline rules, one accent.
+"""Drawing kit for this submission's figures.
 
-Everything is drawn at a design width of 880 units, which the report scales to
-the full text width, so a font size of 14 here prints at roughly 7.5 pt.
+The grammar is deliberately small, because the subject is small: an order is a
+sequence of events that is never erased, and the compute that produces them is
+not there to draw. So a box means "a thing that runs", a line means "a message",
+a number means "a position in the stream", and nothing else is given chrome.
+
+Two colours carry meaning and no others: one for the path that commits, one for
+the path that undoes. Everything drawn at a design width of 880 units.
 """
 from pathlib import Path
 
 OUT = Path(__file__).parent / "src"
 
-FONT = "Helvetica, Arial, sans-serif"
-INK = "#1c1b1f"
-GREY = "#6b6a70"
-LIGHT = "#f5f4f2"
+FONT = "Optima, Palatino, serif"
+INK = "#17323b"          # slate-teal; the only text colour
+RULE = "#9fb0b5"         # structure
+QUIET = "#6b7d83"        # secondary text
+COMMIT = "#0e6e58"       # the path that completes. Used for nothing else.
+UNDO = "#8c2f22"         # the path that compensates. Used for nothing else.
+WASH = "#eef3f2"         # one fill, for things MaltaShop does not run
 WHITE = "#ffffff"
-ACCENT = "#b45309"       # checkout-critical, gates, compensation
-AMBER = "#8a6d1f"        # message broker and events
-AMBER_FILL = "#fbf4e6"
-BLUE = "#4338ca"         # observability and prototype marks
-BLUE_FILL = "#eeedfb"
-GREEN = "#15635a"
-GREEN_FILL = "#e7f2f0"
-COLOURS = {"ink": INK, "grey": GREY, "accent": ACCENT, "amber": AMBER, "blue": BLUE, "green": GREEN}
 
+COLOURS = {"ink": INK, "rule": RULE, "quiet": QUIET, "commit": COMMIT, "undo": UNDO}
 
-# ------------------------------------------------------------------ primitives
 
 def svg(width, height, body):
     markers = "".join(
-        f'<marker id="arrow-{name}" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" '
-        f'markerHeight="7" orient="auto-start-reverse"><path d="M0,1 L9,5 L0,9 z" fill="{colour}"/></marker>'
+        f'<marker id="a-{name}" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="6.5" '
+        f'markerHeight="6.5" orient="auto-start-reverse">'
+        f'<path d="M0,1.5 L9,5 L0,8.5 z" fill="{colour}"/></marker>'
         for name, colour in COLOURS.items())
     return (f'<svg xmlns="http://www.w3.org/2000/svg" width="{width}" height="{height}" '
             f'viewBox="0 0 {width} {height}" font-family="{FONT}">\n<defs>{markers}</defs>\n'
             f'<rect width="{width}" height="{height}" fill="white"/>\n{body}\n</svg>\n')
 
 
-def esc(content):
-    return str(content).replace("&", "&amp;").replace("<", "&lt;").replace(">", "&gt;")
+def esc(value):
+    return str(value).replace("&", "&amp;").replace("<", "&lt;").replace(">", "&gt;")
 
 
-def text(x, y, content, size=14, anchor="middle", colour=INK, bold=False, italic=False):
-    style = (' font-weight="bold"' if bold else "") + (' font-style="italic"' if italic else "")
-    return (f'<text x="{x}" y="{y}" font-size="{size}" text-anchor="{anchor}" fill="{colour}"{style}>'
-            f'{esc(content)}</text>')
+def text(x, y, content, size=13, anchor="middle", colour=INK, weight=None, italic=False):
+    style = f' font-weight="{weight}"' if weight else ""
+    style += ' font-style="italic"' if italic else ""
+    return (f'<text x="{x}" y="{y}" font-size="{size}" text-anchor="{anchor}" fill="{colour}"'
+            f'{style}>{esc(content)}</text>')
 
 
-def text_lines(x, y, rows, size=13.5, gap=17, **kw):
+def lines(x, y, rows, size=12, gap=16, **kw):
     return "\n".join(text(x, y + i * gap, row, size=size, **kw) for i, row in enumerate(rows))
 
 
-def rect(x, y, w, h, fill=LIGHT, stroke=INK, width=1.0, rx=3, dashed=False):
-    dash = ' stroke-dasharray="6 4"' if dashed else ""
-    return (f'<rect x="{x}" y="{y}" width="{w}" height="{h}" rx="{rx}" fill="{fill}" stroke="{stroke}" '
+def rule(x1, y, x2, colour=RULE, width=0.9, dashed=False):
+    dash = ' stroke-dasharray="5 4"' if dashed else ""
+    return (f'<line x1="{x1}" y1="{y}" x2="{x2}" y2="{y}" stroke="{colour}" '
             f'stroke-width="{width}"{dash}/>')
 
 
-def box(x, y, w, h, title, rows=(), fill=LIGHT, stroke=INK, width=1.4, title_size=15, size=13.5,
-        dashed=False, title_colour=INK, top=None):
-    """A rounded box with a bold title and centred lines under it."""
-    parts = [rect(x, y, w, h, fill, stroke, width, dashed=dashed)]
-    block = 18 + len(rows) * 17
-    first = top if top is not None else y + (h - block) / 2 + 14
-    parts.append(text(x + w / 2, first, title, size=title_size, bold=True, colour=title_colour))
-    parts.append(text_lines(x + w / 2, first + 19, rows, size=size))
+def vrule(x, y1, y2, colour=RULE, width=0.9, dashed=False):
+    dash = ' stroke-dasharray="5 4"' if dashed else ""
+    return (f'<line x1="{x}" y1="{y1}" x2="{x}" y2="{y2}" stroke="{colour}" '
+            f'stroke-width="{width}"{dash}/>')
+
+
+def box(x, y, w, h, fill=WHITE, stroke=INK, width=1.1, dashed=False):
+    """A box means a thing that runs. Nothing decorative is ever boxed."""
+    dash = ' stroke-dasharray="5 4"' if dashed else ""
+    return (f'<rect x="{x}" y="{y}" width="{w}" height="{h}" fill="{fill}" stroke="{stroke}" '
+            f'stroke-width="{width}"{dash}/>')
+
+
+def node(x, y, w, h, name, rows=(), stroke=INK, fill=WHITE, size=13, weight="600", gap=15):
+    """A deployable: its name, and what it owns or does."""
+    parts = [box(x, y, w, h, fill, stroke, 1.1 if stroke == INK else 1.5),
+             text(x + w / 2, y + 20, name, size=size, weight=weight, colour=stroke)]
+    if rows:
+        parts.append(lines(x + w / 2, y + 38, rows, size=11, gap=gap, colour=QUIET))
     return "\n".join(parts)
 
 
-def arrow(x1, y1, x2, y2, colour="ink", dashed=False, both=False, width=1.5):
-    dash = ' stroke-dasharray="6 4"' if dashed else ""
-    start = f' marker-start="url(#arrow-{colour})"' if both else ""
-    return (f'<line x1="{x1}" y1="{y1}" x2="{x2}" y2="{y2}" stroke="{COLOURS[colour]}" stroke-width="{width}"'
-            f'{dash}{start} marker-end="url(#arrow-{colour})"/>')
+def arrow(x1, y1, x2, y2, colour="ink", dashed=False, width=1.1, both=False):
+    dash = ' stroke-dasharray="5 4"' if dashed else ""
+    start = f' marker-start="url(#a-{colour})"' if both else ""
+    return (f'<line x1="{x1}" y1="{y1}" x2="{x2}" y2="{y2}" stroke="{COLOURS[colour]}" '
+            f'stroke-width="{width}"{dash}{start} marker-end="url(#a-{colour})"/>')
 
 
-def polyline(points, colour="ink", dashed=False, end_arrow=True, width=1.5):
-    dash = ' stroke-dasharray="6 4"' if dashed else ""
-    marker = f' marker-end="url(#arrow-{colour})"' if end_arrow else ""
+def path(points, colour="ink", dashed=False, width=1.1, arrowhead=True):
+    dash = ' stroke-dasharray="5 4"' if dashed else ""
+    head = f' marker-end="url(#a-{colour})"' if arrowhead else ""
     pts = " ".join(f"{x},{y}" for x, y in points)
-    return (f'<polyline points="{pts}" fill="none" stroke="{COLOURS[colour]}" stroke-width="{width}"'
-            f'{dash}{marker}/>')
+    return (f'<polyline points="{pts}" fill="none" stroke="{COLOURS[colour]}" '
+            f'stroke-width="{width}"{dash}{head}/>')
 
 
-def line(x1, y1, x2, y2, colour=INK, width=1.2, dashed=False):
-    dash = ' stroke-dasharray="6 4"' if dashed else ""
-    return f'<line x1="{x1}" y1="{y1}" x2="{x2}" y2="{y2}" stroke="{colour}" stroke-width="{width}"{dash}/>'
-
-
-def cylinder(x, y, w=18, h=22, colour=INK):
-    """A small database symbol with its top-left corner at (x, y)."""
-    ry = 4
-    return (f'<path d="M{x},{y + ry} v{h - 2 * ry} a{w / 2},{ry} 0 0 0 {w},0 v{-(h - 2 * ry)}" '
-            f'fill="white" stroke="{colour}" stroke-width="1.2"/>'
-            f'<ellipse cx="{x + w / 2}" cy="{y + ry}" rx="{w / 2}" ry="{ry}" fill="white" stroke="{colour}" '
-            f'stroke-width="1.2"/>')
-
-
-def service(x, y, w, h, name, stores, critical=False, extra=None):
-    """A service box: name on top, its own data store(s) in a lower compartment."""
-    stroke = ACCENT if critical else INK
-    parts = [rect(x, y, w, h, WHITE, stroke, 2.0 if critical else 1.4)]
-    parts.append(text(x + w / 2, y + 22, name, size=15, bold=True, colour=stroke))
-    if extra:
-        parts.append(text(x + w / 2, y + 38, extra, size=12.5, colour=GREY, italic=True))
-    divider = y + (46 if extra else 32)
-    parts.append(line(x, divider, x + w, divider, colour=stroke, width=1.0))
-    parts.append(cylinder(x + 10, divider + 8))
-    for i, store in enumerate(stores):
-        parts.append(text(x + 36, divider + 22 + i * 16, store, size=13, anchor="start"))
+def spine(y, x1, x2, name, detail=None):
+    """The event bus: one continuous line that producers drop onto and consumers
+    rise from. It is the shape of the system, so it is drawn as one object."""
+    parts = [f'<line x1="{x1}" y1="{y}" x2="{x2}" y2="{y}" stroke="{INK}" stroke-width="3"/>',
+             f'<circle cx="{x1}" cy="{y}" r="3.5" fill="{INK}"/>',
+             f'<circle cx="{x2}" cy="{y}" r="3.5" fill="{INK}"/>',
+             text(x1, y - 16, name, size=13, anchor="start", weight="600")]
+    if detail:
+        parts.append(text(x2, y - 16, detail, size=11, anchor="end", colour=QUIET))
     return "\n".join(parts)
 
 
+def tap(x, y_spine, y_node, colour="ink", up=False, dashed=False):
+    """A drop onto the spine, or a rise from it."""
+    return "\n".join([
+        arrow(x, y_node, x, y_spine - (0 if up else 0), colour, dashed=dashed) if not up
+        else arrow(x, y_spine, x, y_node, colour, dashed=dashed),
+        f'<circle cx="{x}" cy="{y_spine}" r="2.6" fill="{COLOURS[colour]}"/>'])
+
+
+def seq(x, y, number, label, detail=None, colour=INK):
+    """One entry on the sequence rail. The numbers are the prototype's real
+    sequence numbers, not decoration: the stream is genuinely ordered."""
+    parts = [f'<circle cx="{x}" cy="{y}" r="9" fill="{WHITE}" stroke="{colour}" stroke-width="1.2"/>',
+             text(x, y + 4, number, size=11, weight="600", colour=colour),
+             text(x + 18, y + 4, label, size=12.5, anchor="start", colour=INK)]
+    if detail:
+        parts.append(text(x + 18, y + 19, detail, size=10.5, anchor="start", colour=QUIET))
+    return "\n".join(parts)
+
+
+def bar(x, y, w, h, filled, fill_colour=UNDO, track=WASH):
+    """A quantity drawn to scale, because a quantity drawn to scale says more than
+    the same number set large."""
+    return "\n".join([
+        f'<rect x="{x}" y="{y}" width="{w}" height="{h}" fill="{track}" stroke="{RULE}" stroke-width="0.8"/>',
+        f'<rect x="{x}" y="{y}" width="{max(w * filled, 1.5)}" height="{h}" fill="{fill_colour}"/>'])
+
+
+def store(x, y, label, colour=INK):
+    """A persistent store, drawn small because it is not the point of any figure."""
+    return "\n".join([
+        f'<path d="M{x},{y + 3.5} v7 a5,3.5 0 0 0 10,0 v-7" fill="none" stroke="{colour}" stroke-width="1"/>',
+        f'<ellipse cx="{x + 5}" cy="{y + 3.5}" rx="5" ry="3.5" fill="none" stroke="{colour}" stroke-width="1"/>',
+        text(x + 14, y + 11, label, size=10.5, anchor="start", colour=QUIET)])
